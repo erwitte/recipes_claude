@@ -1,0 +1,30 @@
+{
+  "name": "recipes-backend",
+  "exports": {
+    ".": "./src/trpc/router.ts"
+  },
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "bun run src/db/migrate.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1127.0",
+    "@clerk/backend": "^1.21.0",
+    "@trpc/server": "^11.0.0",
+    "drizzle-orm": "^0.36.4",
+    "postgres": "^3.4.5",
+    "sharp": "^0.35.4",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+    "drizzle-kit": "^0.28.1",
+    "typescript": "^5.7.2"
+  }
+}
