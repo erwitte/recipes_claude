@@ -2,6 +2,8 @@ import { useState } from "react";
 import { trpc } from "./trpc";
 import { RecipeForm, RecipeDraft, emptyRecipeDraft } from "./RecipeForm";
 import { AlbumManager } from "./AlbumManager";
+import { imageSrc } from "./imageUrl";
+import { BookIcon, BowlIcon, ChefHatIcon } from "./icons";
 
 type View =
   | { name: "list" }
@@ -60,7 +62,9 @@ export function RecipesApp() {
   if (view.name === "albums") {
     return (
       <div>
-        <button onClick={() => setView({ name: "list" })}>Back to recipes</button>
+        <button className="btn btn-ghost" onClick={() => setView({ name: "list" })}>
+          ← Back to recipes
+        </button>
         <AlbumManager />
       </div>
     );
@@ -69,29 +73,69 @@ export function RecipesApp() {
   if (view.name === "list") {
     return (
       <div>
-        <h1>Recipes</h1>
-        <button onClick={() => setView({ name: "create" })}>New recipe</button>
-        <button onClick={() => setView({ name: "albums" })}>Manage albums</button>
-        <label>
-          Album
-          <select value={albumFilter} onChange={(e) => setAlbumFilter(e.target.value)}>
-            <option value="">All recipes</option>
-            {albums.data?.map((album) => (
-              <option key={album.id} value={album.id}>
-                {album.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        {mutationError && <p role="alert">Error: {mutationError.message}</p>}
-        {recipes.isLoading && <p>Loading...</p>}
-        <ul>
-          {recipes.data?.map((recipe) => (
-            <li key={recipe.id}>
-              <button onClick={() => setView({ name: "detail", id: recipe.id })}>{recipe.title}</button>
-            </li>
-          ))}
-        </ul>
+        <div className="page-header">
+          <div>
+            <h1>Your recipes</h1>
+            <p>Everything you've saved, ready to cook again.</p>
+          </div>
+          <div className="page-header-actions">
+            <select
+              className="select-pill"
+              value={albumFilter}
+              onChange={(e) => setAlbumFilter(e.target.value)}
+            >
+              <option value="">All recipes</option>
+              {albums.data?.map((album) => (
+                <option key={album.id} value={album.id}>
+                  {album.name}
+                </option>
+              ))}
+            </select>
+            <button className="btn btn-secondary" onClick={() => setView({ name: "albums" })}>
+              <BookIcon width={16} height={16} /> Albums
+            </button>
+            <button className="btn btn-primary" onClick={() => setView({ name: "create" })}>
+              + New recipe
+            </button>
+          </div>
+        </div>
+
+        {mutationError && <p className="alert" role="alert">{mutationError.message}</p>}
+        {recipes.isLoading && <p className="loading-state">Loading your recipes…</p>}
+
+        {!recipes.isLoading && recipes.data?.length === 0 && (
+          <div className="empty-state">
+            <ChefHatIcon />
+            <h3>No recipes yet</h3>
+            <p>Start building your recipe box by adding your first one.</p>
+            <button className="btn btn-primary" onClick={() => setView({ name: "create" })}>
+              + New recipe
+            </button>
+          </div>
+        )}
+
+        <div className="grid">
+          {recipes.data?.map((recipe) => {
+            const src = imageSrc(recipe.coverImageKey);
+            return (
+              <button
+                key={recipe.id}
+                className="recipe-card"
+                onClick={() => setView({ name: "detail", id: recipe.id })}
+              >
+                <div className="recipe-card-media">
+                  {src ? <img src={src} alt={recipe.title} /> : <BowlIcon className="food-placeholder-icon" />}
+                </div>
+                <div className="recipe-card-body">
+                  <div className="recipe-card-title">{recipe.title}</div>
+                  {recipe.servings != null && (
+                    <div className="recipe-card-meta">Serves {recipe.servings}</div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
     );
   }
@@ -99,11 +143,14 @@ export function RecipesApp() {
   if (view.name === "create") {
     return (
       <div>
-        <button onClick={() => setView({ name: "list" })}>Back</button>
-        {createMutation.error && <p role="alert">Error: {createMutation.error.message}</p>}
+        <button className="btn btn-ghost" onClick={() => setView({ name: "list" })}>
+          ← Back
+        </button>
+        <h1>New recipe</h1>
+        {createMutation.error && <p className="alert" role="alert">{createMutation.error.message}</p>}
         <RecipeForm
           initial={emptyRecipeDraft()}
-          submitLabel="Create"
+          submitLabel="Save recipe"
           onSubmit={(draft) => createMutation.mutate(toMutationInput(draft))}
         />
       </div>
@@ -111,7 +158,14 @@ export function RecipesApp() {
   }
 
   if (view.name === "detail") {
-    return <RecipeDetail id={view.id} onBack={() => setView({ name: "list" })} onEdit={() => setView({ name: "edit", id: view.id })} onDelete={() => deleteMutation.mutate({ id: view.id })} />;
+    return (
+      <RecipeDetail
+        id={view.id}
+        onBack={() => setView({ name: "list" })}
+        onEdit={() => setView({ name: "edit", id: view.id })}
+        onDelete={() => deleteMutation.mutate({ id: view.id })}
+      />
+    );
   }
 
   return <RecipeEdit id={view.id} onDone={() => setView({ name: "detail", id: view.id })} />;
@@ -130,38 +184,86 @@ function RecipeDetail({
 }) {
   const recipe = trpc.recipe.get.useQuery({ id });
 
-  if (recipe.isLoading) return <p>Loading...</p>;
-  if (recipe.error || !recipe.data) return <p>Recipe not found.</p>;
+  if (recipe.isLoading) return <p className="loading-state">Loading recipe…</p>;
+  if (recipe.error || !recipe.data) return <p className="loading-state">Recipe not found.</p>;
 
   const r = recipe.data;
+  const src = imageSrc(r.coverImageKey);
+
   return (
     <div>
-      <button onClick={onBack}>Back</button>
-      <h1>{r.title}</h1>
-      {r.servings != null && <p>Servings: {r.servings}</p>}
-      <h2>Ingredients</h2>
-      <ul>
-        {r.ingredients.map((i) => (
-          <li key={i.id}>
-            {i.name}
-            {i.quantity ? ` — ${i.quantity}${i.unit ? ` ${i.unit}` : ""}` : ""}
-          </li>
-        ))}
-      </ul>
-      <h2>Steps</h2>
-      <ol>
-        {r.steps.map((s) => (
-          <li key={s.id}>{s.instruction}</li>
-        ))}
-      </ol>
+      <button className="btn btn-ghost" onClick={onBack}>
+        ← Back
+      </button>
+
+      <div className="recipe-hero">
+        {src ? <img src={src} alt={r.title} /> : <ChefHatIcon className="food-placeholder-icon" />}
+      </div>
+
+      <div className="page-header">
+        <div>
+          <h1>{r.title}</h1>
+          {r.servings != null && (
+            <div className="recipe-meta-row">
+              <span className="pill">Serves {r.servings}</span>
+            </div>
+          )}
+        </div>
+        <div className="page-header-actions">
+          <button className="btn btn-secondary" onClick={onEdit}>
+            Edit
+          </button>
+          <button className="btn btn-danger" onClick={onDelete}>
+            Delete
+          </button>
+        </div>
+      </div>
+
+      <div className="recipe-section">
+        <h2>Ingredients</h2>
+        <ul className="ingredient-list">
+          {r.ingredients.map((i) => (
+            <li key={i.id}>
+              <span>{i.name}</span>
+              {i.quantity && (
+                <span className="qty">
+                  {i.quantity}
+                  {i.unit ? ` ${i.unit}` : ""}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="recipe-section">
+        <h2>Steps</h2>
+        <ol className="step-list">
+          {r.steps.map((s, idx) => {
+            const stepImg = imageSrc(s.imageKey);
+            return (
+              <li key={s.id}>
+                <span className="step-number">{idx + 1}</span>
+                <div className="step-body">
+                  <p>{s.instruction}</p>
+                  {stepImg && (
+                    <div className="step-image">
+                      <img src={stepImg} alt="" />
+                    </div>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+
       {r.notes && (
-        <>
+        <div className="recipe-section">
           <h2>Notes</h2>
           <p>{r.notes}</p>
-        </>
+        </div>
       )}
-      <button onClick={onEdit}>Edit</button>
-      <button onClick={onDelete}>Delete</button>
     </div>
   );
 }
@@ -177,8 +279,8 @@ function RecipeEdit({ id, onDone }: { id: string; onDone: () => void }) {
     },
   });
 
-  if (recipe.isLoading) return <p>Loading...</p>;
-  if (!recipe.data) return <p>Recipe not found.</p>;
+  if (recipe.isLoading) return <p className="loading-state">Loading…</p>;
+  if (!recipe.data) return <p className="loading-state">Recipe not found.</p>;
 
   const initial: RecipeDraft = {
     title: recipe.data.title,
@@ -195,10 +297,11 @@ function RecipeEdit({ id, onDone }: { id: string; onDone: () => void }) {
 
   return (
     <div>
-      {updateMutation.error && <p role="alert">Error: {updateMutation.error.message}</p>}
+      <h1>Edit recipe</h1>
+      {updateMutation.error && <p className="alert" role="alert">{updateMutation.error.message}</p>}
       <RecipeForm
         initial={initial}
-        submitLabel="Save"
+        submitLabel="Save changes"
         onSubmit={(draft) => updateMutation.mutate({ id, ...toMutationInput(draft) })}
       />
     </div>
